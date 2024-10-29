@@ -11,19 +11,19 @@ pipeline {
     stages {
         stage('Git Checkout') {
             steps {
-                echo 'This stage is to clone the repo from GitHub'
+                echo 'Cloning the repo from GitHub'
                 git branch: 'master', url: 'https://github.com/MANIKANTAN04/star-agile-health-care.git'
             }
         }
         stage('Create Package') {
             steps {
-                echo 'This stage will compile, test, package my application'
+                echo 'Compiling, testing, and packaging the application'
                 sh 'mvn package'
             }
         }
         stage('Generate Test Report') {
             steps {
-                echo 'This stage generates Test report using TestNG'
+                echo 'Generating Test report using TestNG'
                 publishHTML([
                     allowMissing: false, 
                     alwaysLinkToLastBuild: false, 
@@ -36,15 +36,14 @@ pipeline {
         }
         stage('Create Docker Image') {
             steps {
-                echo 'This stage will create a Docker image'
-                sh 'docker build -t manik04/healthcare:1.0 .'
+                echo 'Creating a Docker image'
+                sh 'docker build -t ${DOCKER_IMAGE} .'
             }
         }
         stage('Login to Docker Hub') {
             steps {
                 echo 'Logging into Docker Hub'
                 withCredentials([usernamePassword(credentialsId: 'Docker-login-new', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
-
                     script {
                         echo "Using user: ${docker-login}"
                         echo "Password length: ${docker-pass.length()}" // Check password length (won't reveal password)
@@ -57,7 +56,7 @@ pipeline {
         }
         stage('Docker Push-Image') {
             steps {
-                echo 'This stage will push my new image to Docker Hub'
+                echo 'Pushing the new image to Docker Hub'
                 sh "docker push ${DOCKER_IMAGE}"
             }
         }
@@ -68,8 +67,6 @@ pipeline {
                 }
             }
         }
-
-        // Terraform operations for the test workspace
         stage('Terraform Operations for Test Workspace') {
             steps {
                 script {
@@ -82,31 +79,23 @@ pipeline {
                 }
             }
         }
-
-        // Apply Terraform changes for the test workspace
         stage('Terraform Apply for Test Workspace') {
             steps {
                 sh 'terraform apply -auto-approve'
             }
         }
-
-        // Get Kubernetes configuration for the test environment
         stage('Get Kubeconfig for Test') {
             steps {
                 sh 'aws eks update-kubeconfig --region ${AWS_REGION} --name test-cluster'
                 sh 'kubectl get nodes'
             }
         }
-
-        // Deploy the application to the test environment
         stage('Deploy Application to Test') {
             steps {
                 sh 'kubectl apply -f app-deploy.yml'
                 sh 'kubectl get svc'
             }
         }
-
-        // Terraform operations for the production workspace
         stage('Terraform Operations for Production Workspace') {
             when {
                 expression {
@@ -124,23 +113,17 @@ pipeline {
                 }
             }
         }
-
-        // Apply Terraform changes for the production workspace
         stage('Terraform Apply for Production Workspace') {
             steps {
                 sh 'terraform apply -auto-approve'
             }
         }
-
-        // Get Kubernetes configuration for the production environment
         stage('Get Kubeconfig for Production') {
             steps {
                 sh 'aws eks update-kubeconfig --region ${AWS_REGION} --name prod-cluster'
                 sh 'kubectl get nodes'
             }
         }
-
-        // Deploy the application to the production environment
         stage('Deploy Application to Production') {
             steps {
                 sh 'kubectl apply -f app-deploy.yml'
