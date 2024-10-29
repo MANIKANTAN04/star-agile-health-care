@@ -67,7 +67,6 @@ pipeline {
                 }
             }
         }
-     
 
         // Terraform operations for the test workspace
         stage('Terraform Operations for Test Workspace') {
