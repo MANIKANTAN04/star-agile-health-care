@@ -41,19 +41,24 @@ pipeline {
             }
         }
         stage('Login to Docker Hub') {
-            steps {
-                echo 'Logging into Docker Hub'
-                withCredentials([usernamePassword(credentialsId: 'Docker-login-new', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
-                    script {
-                        echo "Using user: ${docker-login}"
-                        echo "Password length: ${docker-pass.length()}" // Check password length (won't reveal password)
-                        sh '''
-                            echo "${docker-pass}" | docker login -u "${docker-login}" --password-stdin
-                        '''
-                    }
-                }
+           steps {
+             echo 'Logging into Docker Hub'
+            withCredentials([usernamePassword(credentialsId: 'Docker-login-new', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
+            script {
+                echo "Using user: ${docker-login}"
+                echo "Password length: ${docker-pass.length()}" // Check password length (won't reveal password)
+                sh '''
+                    echo "${docker-pass}" | docker login -u "${docker-login}" --password-stdin
+                    if [ $? -ne 0 ]; then
+                        echo "Docker login failed!"
+                        exit 1
+                    fi
+                '''
             }
         }
+    }
+}
+
         stage('Docker Push-Image') {
             steps {
                 echo 'Pushing the new image to Docker Hub'
