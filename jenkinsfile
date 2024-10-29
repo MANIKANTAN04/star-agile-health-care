@@ -56,11 +56,13 @@ pipeline {
         echo 'Logging into Docker Hub'
         withCredentials([usernamePassword(credentialsId: 'Docker-login', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
             sh '''
+                echo "Using user: ${docker-login}"
                 echo "${docker-pass}" | docker login -u "${docker-login}" --password-stdin
             '''
         }
     }
 }
+
 
 
         // Stage to push the Docker image to Docker Hub
