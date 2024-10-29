@@ -5,7 +5,7 @@ pipeline {
     }
     environment {
         AWS_REGION = 'us-east-1'
-        DOCKER_IMAGE = 'manik04/healthcare:2.0'
+        DOCKER_IMAGE = 'manik04/healthcare:1.0'
     }
     
     stages {
