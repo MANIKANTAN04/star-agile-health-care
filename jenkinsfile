@@ -1,86 +1,73 @@
 pipeline {
     agent any
-
     tools {
         maven 'M2_HOME'
     }
-
     environment {
         AWS_REGION = 'us-east-1'
         DOCKER_IMAGE = 'manik04/healthcare:1.0'
     }
-
+    
     stages {
-        // Stage to clone the Git repository
         stage('Git Checkout') {
             steps {
-                echo 'Cloning the repository from GitHub'
+                echo 'This stage is to clone the repo from GitHub'
                 git branch: 'master', url: 'https://github.com/MANIKANTAN04/star-agile-health-care.git'
             }
         }
-
-        // Stage to compile, test, and package the application
         stage('Create Package') {
             steps {
-                echo 'Compiling, testing, and packaging the application'
+                echo 'This stage will compile, test, package my application'
                 sh 'mvn package'
             }
         }
-
-        // Stage to generate TestNG reports
         stage('Generate Test Report') {
             steps {
-                echo 'Generating Test report using TestNG'
+                echo 'This stage generates Test report using TestNG'
                 publishHTML([
-                    allowMissing: false,
-                    alwaysLinkToLastBuild: false,
-                    keepAll: false,
+                    allowMissing: false, 
+                    alwaysLinkToLastBuild: false, 
+                    keepAll: false, 
                     reportDir: 'target/surefire-reports',
-                    reportFiles: 'index.html',
+                    reportFiles: 'index.html', 
                     reportName: 'HTML Report'
                 ])
             }
         }
-
-        // Stage to create a Docker image
         stage('Create Docker Image') {
             steps {
-                echo 'Creating Docker image'
-                sh "docker build -t ${DOCKER_IMAGE} ."
+                echo 'This stage will create a Docker image'
+                sh 'docker build -t manik04/healthcare:1.0 .'
             }
         }
-
-        // Stage to log into Docker Hub
         stage('Login to Docker Hub') {
-    steps {
-        echo 'Logging into Docker Hub'
-        withCredentials([usernamePassword(credentialsId: 'Docker-login', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
-            sh '''
-                echo "Using user: ${docker-login}"
-                echo "${docker-pass}" | docker login -u "${docker-login}" --password-stdin
-            '''
-        }
-    }
-}
-
-
-
-        // Stage to push the Docker image to Docker Hub
-        stage('Docker Push Image') {
             steps {
-                echo 'Pushing the Docker image to Docker Hub'
-                sh "docker push ${DOCKER_IMAGE}"
-            }
-        }
-
-        // Stage to log into AWS
-        stage('AWS Login') {
-            steps {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWSaccess', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    echo 'Logged into AWS'
+                echo 'Logging into Docker Hub'
+                withCredentials([usernamePassword(credentialsId: 'Docker-login', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
+                    script {
+                        echo "Using user: ${docker-login}"
+                        echo "Password length: ${docker-pass.length()}" // Check password length (won't reveal password)
+                        sh '''
+                            echo "${docker-pass}" | docker login -u "${docker-login}" --password-stdin
+                        '''
+                    }
                 }
             }
         }
+        stage('Docker Push-Image') {
+            steps {
+                echo 'This stage will push my new image to Docker Hub'
+                sh "docker push ${DOCKER_IMAGE}"
+            }
+        }
+        stage('AWS-Login') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWSaccess', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    // AWS login logic here if needed
+                }
+            }
+        }
+     
 
         // Terraform operations for the test workspace
         stage('Terraform Operations for Test Workspace') {
