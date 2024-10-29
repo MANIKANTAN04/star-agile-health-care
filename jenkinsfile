@@ -1,137 +1,118 @@
+
 pipeline {
-    agent any
-    tools {
-        maven 'M2_HOME'
+  agent any
+     tools {
+       maven 'M2_HOME'
+           }
+     
+  stages {
+    stage('Git Checkout') {
+      steps {
+        echo 'This stage is to clone the repo from github'
+        git branch: 'master', url: 'https://github.com/MANIKANTAN04/star-agile-health-care.git'
+                        }
+            }
+    stage('Create Package') {
+      steps {
+        echo 'This stage will compile, test, package my application'
+        sh 'mvn package'
+                          }
+            }
+    stage('Generate Test Report') {
+      steps {
+        echo 'This stage generate Test report using TestNG'
+        publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: '/var/lib/jenkins/workspace/Healthcare/target/surefire-reports', reportFiles: 'index.html', reportName: 'HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+                          }
+            }
+     stage('Create Docker Image') {
+      steps {
+        echo 'This stage will Create a Docker image'
+        sh 'docker build -t manik04/healthcare:1.0 .'
+                          }
+            }
+     stage('Login to Dockerhub') {
+      steps {
+        echo 'This stage will loginto Dockerhub' 
+        withCredentials([usernamePassword(credentialsId: 'Docker-login', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
+        sh 'docker login -u ${dockeruser} -p ${dockerpass}'
+            }
+         }
+     }
+    stage('Docker Push-Image') {
+      steps {
+        echo 'This stage will push my new image to the dockerhub'
+        sh 'docker push manik04/healthcare:1.0'
+            }
+      }
+    stage('AWS-Login') {
+      steps {
+        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWSaccess', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+         }
+      }
     }
-    environment {
-        AWS_REGION = 'us-east-1'
-        DOCKER_IMAGE = 'manik04/healthcare:1.0'
+    stage('Terraform Operations for test workspace') {
+      steps {
+        script {
+          sh '''
+            terraform workspace select test || terraform workspace new test
+            terraform init
+            terraform plan
+            terraform destroy -auto-approve
+          '''
+        }
+      }
     }
-    
-    stages {
-        stage('Git Checkout') {
-            steps {
-                echo 'Cloning the repo from GitHub'
-                git branch: 'master', url: 'https://github.com/MANIKANTAN04/star-agile-health-care.git'
-            }
-        }
-        stage('Create Package') {
-            steps {
-                echo 'Compiling, testing, and packaging the application'
-                sh 'mvn package'
-            }
-        }
-        stage('Generate Test Report') {
-            steps {
-                echo 'Generating Test report using TestNG'
-                publishHTML([
-                    allowMissing: false, 
-                    alwaysLinkToLastBuild: false, 
-                    keepAll: false, 
-                    reportDir: 'target/surefire-reports',
-                    reportFiles: 'index.html', 
-                    reportName: 'HTML Report'
-                ])
-            }
-        }
-        stage('Create Docker Image') {
-            steps {
-                echo 'Creating a Docker image'
-                sh 'docker build -t ${DOCKER_IMAGE} .'
-            }
-        }
-        stage('Login to Docker Hub') {
-    steps {
-        echo 'Logging into Docker Hub'
-        withCredentials([usernamePassword(credentialsId: 'Docker-login-new', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
-            script {
-                echo "Using user: ${docker-login}"
-                echo "Password length: ${docker-pass.length()}" // Check password length
-                def loginResult = sh(script: "echo '${docker-pass}' | docker login -u '${docker-login}' --password-stdin", returnStatus: true)
-                if (loginResult != 0) {
-                    error "Docker login failed!"
-                }
-            }
-        }
+    stage('Terraform destroy & apply for test workspace') {
+      steps {
+        sh 'terraform apply -auto-approve'
+      }
     }
+    stage('get kubeconfig') {
+      steps {
+        sh 'aws eks update-kubeconfig --region us-east-1 --name test-cluster'
+        sh 'kubectl get nodes'
+      }
+    }
+    stage('Deploying the application') {
+      steps {
+        sh 'kubectl apply -f app-deploy.yml'
+        sh 'kubectl get svc'
+      }
+    }
+    stage('Terraform Operations for Production workspace') {
+      when {
+        expression {
+          return currentBuild.currentResult == 'SUCCESS'
+        }
+      }
+      steps {
+        script {
+          sh '''
+            terraform workspace select prod || terraform workspace new prod
+            terraform init
+            terraform plan
+            terraform destroy -auto-approve
+          '''
+        }
+      }
+    }
+    stage('Terraform destroy & apply for production workspace') {
+      steps {
+        sh 'terraform apply -auto-approve'
+      }
+    }
+    stage('get kubeconfig for production') {
+      steps {
+        sh 'aws eks update-kubeconfig --region us-east-1 --name prod-cluster'
+        sh 'kubectl get nodes'
+      }
+    }
+    stage('Deploying the application to production') {
+      steps {
+        sh 'kubectl apply -f app-deploy.yml'
+        sh 'kubectl get svc'
+      }
+    }
+  }
 }
-
-
-        stage('Docker Push-Image') {
-            steps {
-                echo 'Pushing the new image to Docker Hub'
-                sh "docker push ${DOCKER_IMAGE}"
-            }
-        }
-        stage('AWS-Login') {
-            steps {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWSaccess', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    // AWS login logic here if needed
-                }
-            }
-        }
-        stage('Terraform Operations for Test Workspace') {
-            steps {
-                script {
-                    sh '''
-                        terraform workspace select test || terraform workspace new test
-                        terraform init
-                        terraform plan
-                        terraform destroy -auto-approve
-                    '''
-                }
-            }
-        }
-        stage('Terraform Apply for Test Workspace') {
-            steps {
-                sh 'terraform apply -auto-approve'
-            }
-        }
-        stage('Get Kubeconfig for Test') {
-            steps {
-                sh 'aws eks update-kubeconfig --region ${AWS_REGION} --name test-cluster'
-                sh 'kubectl get nodes'
-            }
-        }
-        stage('Deploy Application to Test') {
-            steps {
-                sh 'kubectl apply -f app-deploy.yml'
-                sh 'kubectl get svc'
-            }
-        }
-        stage('Terraform Operations for Production Workspace') {
-            when {
-                expression {
-                    return currentBuild.currentResult == 'SUCCESS'
-                }
-            }
-            steps {
-                script {
-                    sh '''
-                        terraform workspace select prod || terraform workspace new prod
-                        terraform init
-                        terraform plan
-                        terraform destroy -auto-approve
-                    '''
-                }
-            }
-        }
-        stage('Terraform Apply for Production Workspace') {
-            steps {
-                sh 'terraform apply -auto-approve'
-            }
-        }
-        stage('Get Kubeconfig for Production') {
-            steps {
-                sh 'aws eks update-kubeconfig --region ${AWS_REGION} --name prod-cluster'
-                sh 'kubectl get nodes'
-            }
-        }
-        stage('Deploy Application to Production') {
-            steps {
-                sh 'kubectl apply -f app-deploy.yml'
-                sh 'kubectl get svc'
-            }
-        }
-    }
-}
+ 
