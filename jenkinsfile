@@ -42,7 +42,7 @@ pipeline {
         sh 'docker build -t manik04/healthcare:1.0 .'
                           }
             }
-   stage('Login to Dockerhub') {
+  stage('Login to Dockerhub') {
   steps {
     echo 'This stage will log into Dockerhub' 
     withCredentials([usernamePassword(credentialsId: 'Docker-login', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
@@ -52,6 +52,7 @@ pipeline {
     }
   }
 }
+
 
 
 
