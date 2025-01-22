@@ -36,14 +36,20 @@ pipeline {
       steps {
         echo 'This stage will create a image of my application'
         sh 'docker build -t manik04/health-care:5.0 .'
-                          }
-            }
- stage('Docker-Login') {
+     }
+    }
+    stage('Docker-Login') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'dockerlogin', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
         sh 'docker login -u ${docker-login} -p ${docker-pass}'
               }
-                          }
+     }
+    }
+    stage('Docker Push-Image') {
+      steps {
+        echo 'This stage will push my new image to the dockerhub'
+        sh 'docker push manik04/health-care:5.0'
             }
+                              }
   }
 }
