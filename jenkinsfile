@@ -32,5 +32,11 @@ pipeline {
         ])
       }
     }
+    stage('Create Docker Image') {
+      steps {
+        echo 'This stage will create a image of my application'
+        sh 'docker build -t manik04/health-care:5.0 .'
+                          }
+            }
   }
 }
