@@ -38,5 +38,12 @@ pipeline {
         sh 'docker build -t manik04/health-care:5.0 .'
                           }
             }
+ stage('Docker-Login') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerlogin', passwordVariable: 'docker-pass', usernameVariable: 'docker-login')]) {
+        sh 'docker login -u ${docker-login} -p ${docker-pass}'
+              }
+                          }
+            }
   }
 }
